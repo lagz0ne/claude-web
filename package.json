@@ -1,0 +1,11 @@
+{
+  "name": "claude-web",
+  "private": true,
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "dev": "bun run --parallel --filter '*' dev",
+    "build": "bun run --filter 'claude-web-ui' build",
+    "start": "bun run --sequential build start:server",
+    "start:server": "cd server && bun run src/index.ts"
+  }
+}

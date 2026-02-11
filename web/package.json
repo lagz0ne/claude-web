@@ -1,0 +1,29 @@
+{
+  "name": "claude-web-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5111",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-markdown": "latest",
+    "remark-gfm": "latest",
+    "clsx": "latest",
+    "tailwind-merge": "latest",
+    "class-variance-authority": "latest",
+    "lucide-react": "latest"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "latest",
+    "tailwindcss": "^4",
+    "@tailwindcss/vite": "^4"
+  }
+}
