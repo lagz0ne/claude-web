@@ -20,12 +20,13 @@ export type Workspace = {
 export type SessionState = {
   id: string
   cwd: string
-  query: Query
+  query: Query | null
   abortController: AbortController
   messages: SDKMessage[]
   createdAt: number
   pendingPermissions: Map<string, PermissionResolver>
   inputQueue: InputQueue
+  _startQuery?: (firstMessage: SDKUserMessage) => void
 }
 
 export type PermissionResolver = {

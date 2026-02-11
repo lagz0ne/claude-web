@@ -6,7 +6,10 @@ import { PermissionPrompt } from "@/components/PermissionPrompt"
 import { AskUser } from "@/components/AskUser"
 import { SessionSidebar } from "@/components/SessionSidebar"
 import { PresetLauncher } from "@/components/PresetLauncher"
+import { QuickActions } from "@/components/QuickActions"
 import { Menu, Wifi, WifiOff } from "lucide-react"
+
+type Workspace = { name: string; cwd: string; prompt?: string }
 
 export function App() {
   const {
@@ -25,6 +28,7 @@ export function App() {
   } = useClaudeSocket()
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom on new messages
@@ -37,10 +41,11 @@ export function App() {
     }
   }, [sessionMessages.length])
 
-  // Request session list on connect
+  // Request session list + workspaces on connect
   useEffect(() => {
     if (connected) {
       send({ type: "list_sessions" })
+      fetch("/api/workspaces").then((r) => r.json()).then(setWorkspaces).catch(() => {})
     }
   }, [connected, send])
 
@@ -89,6 +94,7 @@ export function App() {
   const goHome = useCallback(() => setActiveSessionId(null), [setActiveSessionId])
 
   const activeSession = sessions.find((s) => s.id === activeSessionId)
+  const activeWorkspace = workspaces.find((w) => w.cwd === activeSession?.cwd)
 
   const hasPermission = pendingPermission?.type === "permission_request" &&
     pendingPermission.sessionId === activeSessionId
@@ -137,6 +143,14 @@ export function App() {
 
       {hasQuestion && pendingQuestion.type === "ask_user_question" && (
         <AskUser msg={pendingQuestion} onRespond={handleQuestionRespond} />
+      )}
+
+      {activeSession && (
+        <QuickActions
+          cwd={activeSession.cwd}
+          presetPrompt={activeWorkspace?.prompt}
+          onSend={handleSendMessage}
+        />
       )}
 
       <PromptInput onSend={handleSendMessage} disabled={inputDisabled} />

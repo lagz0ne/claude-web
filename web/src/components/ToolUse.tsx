@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { ChevronDown, ChevronRight, FileText, Terminal as TermIcon, Search, Globe, Pencil, FolderOpen, Wrench } from "lucide-react"
+import { ChevronDown, ChevronRight, FileText, Terminal as TermIcon, Search, Globe, FolderOpen, Wrench } from "lucide-react"
+import { CodeDiff } from "./CodeDiff"
 
 type Props = {
   name: string
@@ -7,6 +8,30 @@ type Props = {
 }
 
 export function ToolUse({ name, input }: Props) {
+  if (name === "Edit") {
+    return (
+      <CodeDiff
+        filePath={String(input.file_path || "unknown")}
+        oldString={String(input.old_string || "")}
+        newString={String(input.new_string || "")}
+      />
+    )
+  }
+
+  if (name === "Write") {
+    return (
+      <CodeDiff
+        filePath={String(input.file_path || "unknown")}
+        oldString=""
+        newString={String(input.content || "")}
+      />
+    )
+  }
+
+  return <GenericToolUse name={name} input={input} />
+}
+
+function GenericToolUse({ name, input }: Props) {
   const [open, setOpen] = useState(false)
   const summary = getSummary(name, input)
   const Icon = getToolIcon(name)
@@ -42,8 +67,6 @@ export function ToolUse({ name, input }: Props) {
 function getToolIcon(name: string) {
   switch (name) {
     case "Read": return FileText
-    case "Write": return Pencil
-    case "Edit": return Pencil
     case "Bash": return TermIcon
     case "Glob": return FolderOpen
     case "Grep": return Search
@@ -56,8 +79,6 @@ function getToolIcon(name: string) {
 function getSummary(name: string, input: Record<string, unknown>): string {
   switch (name) {
     case "Read":
-    case "Write":
-    case "Edit":
       return String(input.file_path || "")
     case "Bash":
       return String(input.command || "").slice(0, 80)

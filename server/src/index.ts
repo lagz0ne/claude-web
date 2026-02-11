@@ -9,7 +9,8 @@ import { respondPermissionFlow } from "./flows/respond-permission"
 import { listSessionsFlow } from "./flows/list-sessions"
 import { killSessionFlow } from "./flows/kill-session"
 import type { ClientMessage } from "./types"
-import { resolve } from "path"
+import { resolve, join } from "path"
+import { readdirSync, readFileSync } from "fs"
 
 const clients = new Set<{ send: (data: string) => void }>()
 
@@ -33,6 +34,53 @@ const app = new Hono()
 app.get("/api/workspaces", async (c) => {
   const config = await scope.resolve(configAtom)
   return c.json(listWorkspaces(config))
+})
+
+app.get("/api/commands", (c) => {
+  const cwd = c.req.query("cwd")
+  if (!cwd) return c.json([])
+
+  const commands: { name: string; description?: string }[] = []
+
+  // Scan .claude/commands/
+  try {
+    const cmdDir = join(cwd, ".claude", "commands")
+    for (const file of readdirSync(cmdDir)) {
+      if (!file.endsWith(".md")) continue
+      const name = "/" + file.replace(/\.md$/, "")
+      let description: string | undefined
+      try {
+        const content = readFileSync(join(cmdDir, file), "utf-8")
+        // First non-frontmatter, non-empty line as description
+        const lines = content.split("\n")
+        let inFrontmatter = false
+        for (const line of lines) {
+          if (line.trim() === "---") { inFrontmatter = !inFrontmatter; continue }
+          if (inFrontmatter) continue
+          const trimmed = line.replace(/^#+\s*/, "").trim()
+          if (trimmed) { description = trimmed.slice(0, 80); break }
+        }
+      } catch { /* skip */ }
+      commands.push({ name, description })
+    }
+  } catch { /* no commands dir */ }
+
+  // Scan .claude/plugins for skills
+  try {
+    const pluginsFile = join(cwd, ".claude", "local-plugins.json")
+    const plugins = JSON.parse(readFileSync(pluginsFile, "utf-8"))
+    if (Array.isArray(plugins)) {
+      for (const plugin of plugins) {
+        if (plugin.skills && Array.isArray(plugin.skills)) {
+          for (const skill of plugin.skills) {
+            if (skill.name) commands.push({ name: `/${skill.name}`, description: skill.description?.slice(0, 80) })
+          }
+        }
+      }
+    }
+  } catch { /* no plugins */ }
+
+  return c.json(commands)
 })
 
 app.get("/api/sessions", async (c) => {
