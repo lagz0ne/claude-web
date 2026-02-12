@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useClaudeSocket } from "@/lib/ws"
+import { useSessions, useWorkspaces, useSessionMessages } from "@/lib/queries"
 import { MessageRenderer } from "@/components/MessageRenderer"
 import { PromptInput } from "@/components/PromptInput"
 import { PermissionPrompt } from "@/components/PermissionPrompt"
@@ -7,19 +8,17 @@ import { AskUser } from "@/components/AskUser"
 import { SessionSidebar } from "@/components/SessionSidebar"
 import { PresetLauncher } from "@/components/PresetLauncher"
 import { QuickActions } from "@/components/QuickActions"
-import { Menu, Wifi, WifiOff } from "lucide-react"
-
-type Workspace = { name: string; cwd: string; prompt?: string }
+import { Settings } from "@/components/Settings"
+import { Menu, Wifi, WifiOff, Settings as SettingsIcon } from "lucide-react"
 
 export function App() {
   const {
     connected,
     send,
     pushUserMessage,
-    sessions,
     activeSessionId,
     setActiveSessionId,
-    sessionMessages,
+    resumeSession,
     pendingPermission,
     setPendingPermission,
     pendingQuestion,
@@ -27,9 +26,33 @@ export function App() {
     isStreaming,
   } = useClaudeSocket()
 
+  const { data: sessions } = useSessions()
+  const { data: workspaces } = useWorkspaces()
+  const { data: sessionMessages } = useSessionMessages(activeSessionId)
+
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [showSettings, setShowSettings] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Sync state → URL
+  useEffect(() => {
+    if (showSettings) return
+    const target = activeSessionId ? `/session/${activeSessionId}` : "/"
+    if (window.location.pathname !== target) {
+      window.history.pushState(null, "", target)
+    }
+  }, [activeSessionId, showSettings])
+
+  // Handle browser back/forward
+  useEffect(() => {
+    function onPopState() {
+      const match = window.location.pathname.match(/^\/session\/(.+)$/)
+      setActiveSessionId(match ? match[1] : null)
+      setShowSettings(false)
+    }
+    window.addEventListener("popstate", onPopState)
+    return () => window.removeEventListener("popstate", onPopState)
+  }, [setActiveSessionId])
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -41,23 +64,19 @@ export function App() {
     }
   }, [sessionMessages.length])
 
-  // Request session list + workspaces on connect
-  useEffect(() => {
-    if (connected) {
-      send({ type: "list_sessions" })
-      fetch("/api/workspaces").then((r) => r.json()).then(setWorkspaces).catch(() => {})
-    }
-  }, [connected, send])
-
   const handleLaunch = useCallback((cwd: string, prompt?: string) => {
     send({ type: "create_session", cwd, prompt })
   }, [send])
 
   const handleSendMessage = useCallback((text: string) => {
     if (!activeSessionId) return
+    const session = sessions.find((s) => s.id === activeSessionId)
+    if (session?.status === "ended") {
+      resumeSession(activeSessionId)
+    }
     pushUserMessage(activeSessionId, text)
     send({ type: "send_message", sessionId: activeSessionId, text })
-  }, [activeSessionId, pushUserMessage, send])
+  }, [activeSessionId, sessions, resumeSession, pushUserMessage, send])
 
   const handlePermissionRespond = useCallback((allow: boolean) => {
     if (!pendingPermission || pendingPermission.type !== "permission_request") return
@@ -91,7 +110,12 @@ export function App() {
 
   const openSidebar = useCallback(() => setSidebarOpen(true), [])
   const closeSidebar = useCallback(() => setSidebarOpen(false), [])
-  const goHome = useCallback(() => setActiveSessionId(null), [setActiveSessionId])
+  const goHome = useCallback(() => {
+    setActiveSessionId(null)
+    setShowSettings(false)
+  }, [setActiveSessionId])
+  const openSettings = useCallback(() => setShowSettings(true), [])
+  const closeSettings = useCallback(() => setShowSettings(false), [])
 
   const activeSession = sessions.find((s) => s.id === activeSessionId)
   const activeWorkspace = workspaces.find((w) => w.cwd === activeSession?.cwd)
@@ -104,31 +128,48 @@ export function App() {
 
   const inputDisabled = !connected || !!hasPermission || !!hasQuestion
 
+  const sidebar = (
+    <SessionSidebar
+      open={sidebarOpen}
+      onClose={closeSidebar}
+      sessions={sessions}
+      activeSessionId={activeSessionId}
+      onSelectSession={(id) => { setActiveSessionId(id); setShowSettings(false) }}
+      onNewSession={goHome}
+      onKillSession={handleKillSession}
+      onOpenSettings={() => { openSettings(); closeSidebar() }}
+    />
+  )
+
+  // Settings view
+  if (showSettings) {
+    return (
+      <div className="min-h-dvh flex flex-col">
+        <Header onMenuClick={openSidebar} connected={connected} onSettingsClick={openSettings} />
+        <Settings onBack={closeSettings} />
+        {sidebar}
+      </div>
+    )
+  }
+
   // Landing page
   if (!activeSessionId) {
     return (
       <div className="min-h-dvh flex flex-col">
-        <Header onMenuClick={openSidebar} connected={connected} />
+        <Header onMenuClick={openSidebar} connected={connected} onSettingsClick={openSettings} />
         <PresetLauncher onLaunch={handleLaunch} />
-        <SessionSidebar
-          open={sidebarOpen}
-          onClose={closeSidebar}
-          sessions={sessions}
-          activeSessionId={activeSessionId}
-          onSelectSession={setActiveSessionId}
-          onNewSession={goHome}
-          onKillSession={handleKillSession}
-        />
+        {sidebar}
       </div>
     )
   }
 
   // Chat view
   return (
-    <div className="min-h-dvh flex flex-col">
+    <div className="h-dvh flex flex-col overflow-hidden">
       <Header
         onMenuClick={openSidebar}
         connected={connected}
+        onSettingsClick={openSettings}
         title={activeSession?.cwd.split("/").pop()}
         subtitle={activeSessionId.slice(0, 8)}
       />
@@ -154,47 +195,54 @@ export function App() {
       )}
 
       <PromptInput onSend={handleSendMessage} disabled={inputDisabled} />
-
-      <SessionSidebar
-        open={sidebarOpen}
-        onClose={closeSidebar}
-        sessions={sessions}
-        activeSessionId={activeSessionId}
-        onSelectSession={setActiveSessionId}
-        onNewSession={goHome}
-        onKillSession={handleKillSession}
-      />
+      {sidebar}
     </div>
   )
 }
 
-function Header({ onMenuClick, connected, title, subtitle }: {
+function Header({ onMenuClick, onSettingsClick, connected, title, subtitle }: {
   onMenuClick: () => void
+  onSettingsClick: () => void
   connected: boolean
   title?: string
   subtitle?: string
 }) {
   return (
-    <header className="flex items-center gap-3 px-3 py-2.5 border-b border-foreground/[0.10] shrink-0">
+    <header className="sticky top-0 z-30 flex items-center gap-0 px-2 py-0 border-b-2 border-foreground/[0.08] shrink-0 bg-background">
       <button
         onClick={onMenuClick}
-        className="p-2 rounded-lg hover:bg-foreground/[0.06] transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+        className="p-2.5 hover:bg-foreground/[0.06] active:bg-foreground/[0.10] transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
       >
-        <Menu className="w-4 h-4 text-foreground/60" />
+        <Menu className="w-[18px] h-[18px] text-foreground/50" />
       </button>
+
       {title ? (
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{title}</p>
-          <p className="text-[10px] text-foreground/40 font-mono truncate">{subtitle}</p>
+        <div className="flex-1 min-w-0 py-2 pl-2">
+          <p className="text-sm font-semibold tracking-tight truncate">{title}</p>
+          <p className="text-[10px] text-foreground/35 font-mono truncate">{subtitle}</p>
         </div>
       ) : (
-        <div className="flex-1" />
+        <div className="flex-1 py-2 pl-2">
+          <p className="text-sm font-mono font-semibold tracking-tight">
+            claude<span className="text-foreground/30">/</span>web
+          </p>
+        </div>
       )}
-      <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-mono ${
-        connected ? "text-emerald-600" : "text-red-500"
+
+      <button
+        onClick={onSettingsClick}
+        className="p-2.5 hover:bg-foreground/[0.06] active:bg-foreground/[0.10] transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+      >
+        <SettingsIcon className="w-[16px] h-[16px] text-foreground/35" />
+      </button>
+
+      <div className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono font-medium border-l-2 ${
+        connected
+          ? "border-emerald-500 text-emerald-600 bg-emerald-500/10"
+          : "border-red-500 text-red-500 bg-red-500/10"
       }`}>
-        {connected ? <Wifi className="w-2.5 h-2.5" /> : <WifiOff className="w-2.5 h-2.5" />}
-        {connected ? "live" : "off"}
+        {connected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+        {connected ? "LIVE" : "OFF"}
       </div>
     </header>
   )

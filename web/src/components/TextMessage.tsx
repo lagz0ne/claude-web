@@ -1,7 +1,7 @@
 import { type ReactElement } from "react"
 import Markdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { DiagramEmbed } from "./DiagramEmbed"
+import { DiagramEmbed, DiagramUrlEmbed, isDiashortUrl } from "./DiagramEmbed"
 
 export function TextMessage({ text }: { text: string }) {
   return (
@@ -19,6 +19,12 @@ export function TextMessage({ text }: { text: string }) {
               }
             }
             return <pre>{children}</pre>
+          },
+          a({ href, children }) {
+            if (href && isDiashortUrl(href)) {
+              return <DiagramUrlEmbed url={href} />
+            }
+            return <a href={href}>{children}</a>
           },
         }}
       >

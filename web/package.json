@@ -8,14 +8,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.21",
+    "class-variance-authority": "latest",
+    "clsx": "latest",
+    "lucide-react": "latest",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "latest",
     "remark-gfm": "latest",
-    "clsx": "latest",
-    "tailwind-merge": "latest",
-    "class-variance-authority": "latest",
-    "lucide-react": "latest"
+    "tailwind-merge": "latest"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "latest",

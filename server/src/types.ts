@@ -9,6 +9,7 @@ export type AppConfig = {
   port: number
   baseDir: string
   presets: PresetConfig[]
+  dangerouslySkipPermissions: boolean
 }
 
 export type Workspace = {
@@ -50,6 +51,7 @@ export type SessionInfo = {
   cwd: string
   createdAt: number
   messageCount: number
+  status: "active" | "ended"
 }
 
 export type ClientMessage =

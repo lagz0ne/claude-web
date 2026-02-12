@@ -34,8 +34,8 @@ export function PromptInput({ onSend, disabled }: Props) {
   const canSend = !disabled && text.trim().length > 0
 
   return (
-    <div className="border-t border-foreground/[0.08] bg-background p-2.5 safe-bottom">
-      <div className="max-w-2xl mx-auto flex items-end gap-2">
+    <div className="border-t-2 border-foreground/[0.08] bg-background safe-bottom">
+      <div className="max-w-2xl mx-auto flex items-end">
         <textarea
           ref={textareaRef}
           value={text}
@@ -44,12 +44,12 @@ export function PromptInput({ onSend, disabled }: Props) {
           placeholder="Message Claude..."
           rows={1}
           disabled={disabled}
-          className="flex-1 resize-none bg-foreground/[0.04] rounded-xl px-3.5 py-2.5 text-sm placeholder:text-foreground/35 focus:outline-none focus:ring-1 focus:ring-foreground/15 min-h-[44px] max-h-[120px] disabled:opacity-30 font-[inherit]"
+          className="flex-1 resize-none bg-transparent px-3 py-3 text-sm placeholder:text-foreground/30 focus:outline-none min-h-[48px] max-h-[120px] disabled:opacity-30 font-[inherit]"
         />
         <button
           onClick={submit}
           disabled={!canSend}
-          className="shrink-0 w-[44px] h-[44px] rounded-xl bg-foreground text-background flex items-center justify-center transition-all disabled:opacity-10 disabled:scale-95 hover:opacity-90 active:scale-95"
+          className="shrink-0 w-[48px] h-[48px] bg-foreground text-background flex items-center justify-center transition-all disabled:opacity-10 hover:opacity-80 active:opacity-60"
         >
           <ArrowUp className="w-4 h-4" strokeWidth={2.5} />
         </button>

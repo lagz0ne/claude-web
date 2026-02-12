@@ -1,5 +1,6 @@
-import { useMemo } from "react"
-import { FileCode, FilePlus } from "lucide-react"
+import { useState, useMemo } from "react"
+import { FileCode, FilePlus, Maximize2 } from "lucide-react"
+import { ArtifactOverlay } from "./ArtifactOverlay"
 
 type DiffLine = {
   type: "context" | "add" | "remove"
@@ -54,7 +55,23 @@ type Props = {
   newString: string
 }
 
+function DiffLines({ lines }: { lines: DiffLine[] }) {
+  return (
+    <>
+      {lines.map((line, i) => (
+        <div key={i} className={`diff-ln diff-ln--${line.type}`}>
+          <span className="diff-gutter">
+            {line.type === "add" ? "+" : line.type === "remove" ? "\u2212" : "\u00a0"}
+          </span>
+          <pre className="diff-code">{line.content || "\u00a0"}</pre>
+        </div>
+      ))}
+    </>
+  )
+}
+
 export function CodeDiff({ filePath, oldString, newString }: Props) {
+  const [expanded, setExpanded] = useState(false)
   const lines = useMemo(() => computeDiff(oldString, newString), [oldString, newString])
   const adds = lines.filter((l) => l.type === "add").length
   const removes = lines.filter((l) => l.type === "remove").length
@@ -62,30 +79,39 @@ export function CodeDiff({ filePath, oldString, newString }: Props) {
   const fileName = filePath.split("/").pop() || filePath
 
   return (
-    <div className="diff -mx-3 sm:mx-0 sm:rounded-lg overflow-hidden my-1.5">
-      <div className="diff-header">
-        {isNew ? (
-          <FilePlus className="w-3.5 h-3.5 shrink-0 opacity-70" />
-        ) : (
-          <FileCode className="w-3.5 h-3.5 shrink-0 opacity-70" />
-        )}
-        <span className="diff-filename">{fileName}</span>
-        <span className="diff-filepath">{filePath}</span>
-        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-          {adds > 0 && <span className="diff-stat-add">+{adds}</span>}
-          {removes > 0 && <span className="diff-stat-rm">-{removes}</span>}
+    <>
+      <div className="diff -mx-3 sm:mx-0 overflow-hidden my-1.5">
+        <div
+          className="diff-header cursor-pointer hover:bg-white/[0.04] transition-colors"
+          onClick={() => setExpanded(true)}
+        >
+          {isNew ? (
+            <FilePlus className="w-3.5 h-3.5 shrink-0 opacity-70" />
+          ) : (
+            <FileCode className="w-3.5 h-3.5 shrink-0 opacity-70" />
+          )}
+          <span className="diff-filename">{fileName}</span>
+          <span className="diff-filepath">{filePath}</span>
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+            {adds > 0 && <span className="diff-stat-add">+{adds}</span>}
+            {removes > 0 && <span className="diff-stat-rm">-{removes}</span>}
+            <Maximize2 className="w-3 h-3 text-white/30" />
+          </div>
+        </div>
+        <div className="diff-body">
+          <DiffLines lines={lines} />
         </div>
       </div>
-      <div className="diff-body">
-        {lines.map((line, i) => (
-          <div key={i} className={`diff-ln diff-ln--${line.type}`}>
-            <span className="diff-gutter">
-              {line.type === "add" ? "+" : line.type === "remove" ? "\u2212" : "\u00a0"}
-            </span>
-            <pre className="diff-code">{line.content || "\u00a0"}</pre>
+
+      {expanded && (
+        <ArtifactOverlay onClose={() => setExpanded(false)} label={`${fileName} — ${filePath}`}>
+          <div className="diff diff--expanded">
+            <div className="diff-body">
+              <DiffLines lines={lines} />
+            </div>
           </div>
-        ))}
-      </div>
-    </div>
+        </ArtifactOverlay>
+      )}
+    </>
   )
 }

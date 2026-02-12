@@ -3,3 +3,4 @@ dist
 *.tsbuildinfo
 config.json
 presets.json
+data/

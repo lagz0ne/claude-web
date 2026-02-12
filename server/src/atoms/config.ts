@@ -1,6 +1,7 @@
 import { atom } from "@pumped-fn/lite"
-import { readFileSync, readdirSync, statSync } from "fs"
-import { resolve, join } from "path"
+import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from "fs"
+import { join, dirname } from "path"
+import { pathsAtom } from "./paths"
 import type { AppConfig, PresetConfig, Workspace } from "../types"
 
 type RawConfig = {
@@ -10,37 +11,29 @@ type RawConfig = {
 }
 
 export const configAtom = atom({
-  factory: () => {
-    const configPath = resolve(process.cwd(), "..", "config.json")
+  deps: { paths: pathsAtom },
+  factory: (_ctx, { paths }) => {
     let raw: RawConfig = {}
     try {
-      raw = JSON.parse(readFileSync(configPath, "utf-8"))
+      raw = JSON.parse(readFileSync(paths.configPath, "utf-8"))
     } catch {
-      // fall back to defaults
-    }
-
-    // Also try legacy presets.json
-    if (!raw.baseDir && !raw.presets) {
-      const presetsPath = resolve(process.cwd(), "..", "presets.json")
-      try {
-        const legacy = JSON.parse(readFileSync(presetsPath, "utf-8"))
-        if (Array.isArray(legacy)) {
-          raw.presets = legacy.map((p: any) => ({ name: p.name, prompt: p.description }))
-          // Derive baseDir from first preset cwd
-          if (legacy[0]?.cwd) {
-            raw.baseDir = resolve(legacy[0].cwd, "..")
-          }
-        }
-      } catch {
-        // no config at all
+      // First run — create default config
+      const defaultConfig: RawConfig = {
+        port: 3111,
+        baseDir: process.env.HOME || "~",
+        presets: [],
       }
+      mkdirSync(dirname(paths.configPath), { recursive: true })
+      writeFileSync(paths.configPath, JSON.stringify(defaultConfig, null, 2))
+      raw = defaultConfig
     }
 
     return {
       port: raw.port ?? (Number(process.env.PORT) || 3111),
       baseDir: raw.baseDir ?? process.cwd(),
       presets: raw.presets ?? [],
-    }
+      dangerouslySkipPermissions: (raw as any).dangerouslySkipPermissions === true,
+    } satisfies AppConfig
   },
 })
 
@@ -63,7 +56,6 @@ export function listWorkspaces(config: AppConfig): Workspace[] {
 
   dirs.sort((a, b) => a.localeCompare(b))
 
-  // Presets go first (in config order), then remaining dirs
   const result: Workspace[] = []
   const seen = new Set<string>()
 

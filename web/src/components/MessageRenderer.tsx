@@ -11,14 +11,14 @@ type Props = {
 
 export function MessageRenderer({ messages, isStreaming }: Props) {
   return (
-    <div className="space-y-1 px-3 py-3 max-w-2xl mx-auto">
+    <div className="space-y-0 px-3 py-3 max-w-2xl mx-auto">
       {messages.map((msg, i) => (
         <MessageItem key={i} msg={msg} />
       ))}
       {isStreaming && (
-        <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground border-l-2 border-foreground/10">
           <Loader2 className="w-3 h-3 animate-spin" />
-          <span className="font-mono">working...</span>
+          <span className="font-mono uppercase tracking-wider text-[10px]">working...</span>
         </div>
       )}
     </div>
@@ -49,13 +49,13 @@ function MessageItem({ msg }: { msg: ChatMessage }) {
 
 function UserMessage({ text }: { text: string }) {
   return (
-    <div className="group py-2">
+    <div className="group py-2.5 border-b border-foreground/[0.05]">
       <div className="flex gap-2.5 items-start">
-        <div className="w-5 h-5 rounded bg-foreground/[0.08] flex items-center justify-center shrink-0 mt-0.5">
-          <User className="w-3 h-3 text-foreground/70" />
+        <div className="w-5 h-5 bg-foreground/[0.08] flex items-center justify-center shrink-0 mt-0.5">
+          <User className="w-3 h-3 text-foreground/60" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-medium text-foreground/60 font-mono uppercase tracking-wide mb-1">you</p>
+          <p className="text-[10px] font-bold text-foreground/45 font-mono uppercase tracking-[0.15em] mb-1">You</p>
           <p className="text-sm leading-relaxed whitespace-pre-wrap">{text}</p>
         </div>
       </div>
@@ -70,14 +70,14 @@ function AssistantMessage({ message }: { message: any }) {
   const hasText = content.some((b: any) => b.type === "text")
 
   return (
-    <div className="py-2">
+    <div className="py-2.5">
       {/* Label row only for text-containing messages */}
       {hasText && (
         <div className="flex items-center gap-2.5 mb-1">
-          <div className="w-5 h-5 rounded bg-blue-500/10 flex items-center justify-center shrink-0">
-            <Bot className="w-3 h-3 text-blue-600" />
+          <div className="w-5 h-5 bg-foreground flex items-center justify-center shrink-0">
+            <Bot className="w-3 h-3 text-background" />
           </div>
-          <p className="text-[11px] font-medium text-blue-600/80 font-mono uppercase tracking-wide">claude</p>
+          <p className="text-[10px] font-bold text-foreground/60 font-mono uppercase tracking-[0.15em]">Claude</p>
         </div>
       )}
 
@@ -118,16 +118,16 @@ function ResultMessage({ message }: { message: any }) {
   const outputTokens = message.usage?.output_tokens
 
   return (
-    <div className="py-1">
-      <div className={`flex items-center gap-1.5 text-[10px] font-mono ${
-        isError ? "text-red-600/80" : "text-foreground/40"
+    <div className="py-1.5">
+      <div className={`flex items-center gap-1.5 text-[10px] font-mono font-medium ${
+        isError ? "text-red-600" : "text-foreground/35"
       }`}>
         {isError ? (
           <AlertCircle className="w-3 h-3" />
         ) : (
           <Terminal className="w-3 h-3" />
         )}
-        <span>{isError ? "error" : "done"}</span>
+        <span className="uppercase tracking-wider">{isError ? "Error" : "Done"}</span>
         {duration != null && <span>| {(duration / 1000).toFixed(1)}s</span>}
         {cost != null && <span>| ${cost.toFixed(4)}</span>}
         {inputTokens != null && outputTokens != null && (
@@ -147,8 +147,8 @@ function SystemMessage({ message }: { message: any }) {
   if (parts.length === 0) return null
 
   return (
-    <div className="py-1">
-      <div className="flex items-center gap-1.5 text-[10px] font-mono text-foreground/40">
+    <div className="py-1.5">
+      <div className="flex items-center gap-1.5 text-[10px] font-mono font-medium text-foreground/30 uppercase tracking-wider">
         <Info className="w-3 h-3" />
         <span>{parts.join(" | ")}</span>
       </div>

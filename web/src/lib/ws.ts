@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 
 export type ServerMessage =
   | { type: "sdk_message"; sessionId: string; message: any }
@@ -19,10 +20,12 @@ export type SessionInfo = {
   cwd: string
   createdAt: number
   messageCount: number
+  status: "active" | "ended"
 }
 
 export type ClientMessage =
   | { type: "create_session"; cwd: string; prompt?: string }
+  | { type: "resume_session"; sessionId: string }
   | { type: "send_message"; sessionId: string; text: string }
   | { type: "permission_response"; sessionId: string; toolUseId: string; allow: boolean; updatedInput?: any }
   | { type: "ask_user_response"; sessionId: string; toolUseId: string; answers: Record<string, string>; questions: any[] }
@@ -31,13 +34,18 @@ export type ClientMessage =
 
 export function useClaudeSocket() {
   const wsRef = useRef<WebSocket | null>(null)
+  const queryClient = useQueryClient()
   const [connected, setConnected] = useState(false)
-  const [messages, setMessages] = useState<Map<string, ChatMessage[]>>(new Map())
-  const [sessions, setSessions] = useState<SessionInfo[]>([])
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
+    const match = window.location.pathname.match(/^\/session\/(.+)$/)
+    return match ? match[1] : null
+  })
   const [pendingPermission, setPendingPermission] = useState<ServerMessage | null>(null)
   const [pendingQuestion, setPendingQuestion] = useState<ServerMessage | null>(null)
   const [isStreaming, setIsStreaming] = useState(false)
+
+  const queryClientRef = useRef(queryClient)
+  queryClientRef.current = queryClient
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
@@ -55,37 +63,32 @@ export function useClaudeSocket() {
 
       ws.onmessage = (event) => {
         const msg: ServerMessage = JSON.parse(event.data)
+        const qc = queryClientRef.current
 
         switch (msg.type) {
           case "sdk_message": {
             const sdkMsg = msg.message
-            // Track streaming state
             if (sdkMsg?.type === "assistant" && sdkMsg?.message?.stop_reason === null) {
               setIsStreaming(true)
             } else if (sdkMsg?.type === "result" || (sdkMsg?.type === "assistant" && sdkMsg?.message?.stop_reason)) {
               setIsStreaming(false)
             }
 
-            setMessages((prev) => {
-              const next = new Map(prev)
-              const list = next.get(msg.sessionId) || []
-              next.set(msg.sessionId, [...list, msg])
-              return next
-            })
+            qc.setQueryData<ChatMessage[]>(["messages", msg.sessionId], (old) => [...(old || []), msg])
             break
           }
           case "session_created": {
             setActiveSessionId(msg.sessionId)
-            send({ type: "list_sessions" })
+            qc.invalidateQueries({ queryKey: ["sessions"] })
             break
           }
           case "session_ended": {
             setIsStreaming(false)
-            send({ type: "list_sessions" })
+            qc.invalidateQueries({ queryKey: ["sessions"] })
             break
           }
           case "session_list": {
-            setSessions(msg.sessions)
+            qc.setQueryData(["sessions"], msg.sessions)
             break
           }
           case "permission_request": {
@@ -123,25 +126,21 @@ export function useClaudeSocket() {
       text,
       timestamp: Date.now(),
     }
-    setMessages((prev) => {
-      const next = new Map(prev)
-      const list = next.get(sessionId) || []
-      next.set(sessionId, [...list, local])
-      return next
-    })
+    queryClient.setQueryData<ChatMessage[]>(["messages", sessionId], (old) => [...(old || []), local])
     setIsStreaming(true)
-  }, [])
+  }, [queryClient])
 
-  const sessionMessages = activeSessionId ? messages.get(activeSessionId) || [] : []
+  const resumeSession = useCallback((sessionId: string) => {
+    send({ type: "resume_session", sessionId })
+  }, [send])
 
   return {
     connected,
     send,
     pushUserMessage,
-    sessions,
     activeSessionId,
     setActiveSessionId,
-    sessionMessages,
+    resumeSession,
     pendingPermission,
     setPendingPermission,
     pendingQuestion,
