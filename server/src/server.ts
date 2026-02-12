@@ -39,6 +39,7 @@ export type ServerOptions = {
   dataDir: string
   distPath: string
   portOverride?: number
+  hostname?: string
 }
 
 export async function startServer(options: ServerOptions) {
@@ -273,9 +274,11 @@ export async function startServer(options: ServerOptions) {
   const config = await scope.resolve(configAtom)
   const port = options.portOverride ?? config.port
 
+  const hostname = options.hostname ?? "127.0.0.1"
+
   Bun.serve({
     port,
-    hostname: "127.0.0.1",
+    hostname,
     fetch(req) {
       const url = new URL(req.url)
 
@@ -305,7 +308,7 @@ export async function startServer(options: ServerOptions) {
     },
   })
 
-  console.log(`claude-ui running on http://localhost:${port}`)
+  console.log(`claude-ui running on http://${hostname}:${port}`)
   console.log(`  Config:  ${options.configPath}`)
   console.log(`  Data:    ${options.dataDir}`)
   console.log(`  Static:  ${options.distPath}`)

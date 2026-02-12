@@ -9,6 +9,7 @@ const { values } = parseArgs({
   args: process.argv.slice(2),
   options: {
     port: { type: "string", short: "p" },
+    host: { type: "string", short: "H" },
     config: { type: "string", short: "c" },
     help: { type: "boolean", short: "h" },
     version: { type: "boolean", short: "v" },
@@ -22,6 +23,7 @@ Usage: claude-ui [options]
 
 Options:
   -p, --port <number>    Server port (default: 3111)
+  -H, --host <addr>      Bind address (default: 127.0.0.1)
   -c, --config <path>    Config file path
   -h, --help             Show this help
   -v, --version          Show version
@@ -81,4 +83,5 @@ await startServer({
   dataDir,
   distPath,
   portOverride: values.port ? Number(values.port) : undefined,
+  hostname: values.host,
 })
